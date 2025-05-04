@@ -853,6 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all repositories
   app.get('/api/repositories', async (req: Request, res: Response) => {
     try {
+      const timeRange = (req.query.timeRange as TimeRange) || '30days';
       const githubToken = process.env.GITHUB_TOKEN;
       const organization = process.env.GITHUB_ORGANIZATION;
       
@@ -917,7 +918,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 Accept: 'application/vnd.github.v3+json'
               },
               params: {
-                per_page: 1
+                per_page: 1,
+                since: getTimeRangeDate(timeRange)
               }
             });
             

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { TimeRange } from "@shared/schema";
 import {
   ResponsiveContainer,
   LineChart,
@@ -26,9 +27,14 @@ import {
 type SortOption = "name" | "commits" | "issues";
 type SortDirection = "asc" | "desc";
 
-export default function Repositories() {
+interface RepositoriesProps {
+  timeRange?: string;
+}
+
+export default function Repositories({ timeRange = "30days" }: RepositoriesProps) {
   const { data: repositories, isLoading, error } = useQuery({
-    queryKey: ['/api/repositories'],
+    queryKey: ['/api/repositories', timeRange],
+    queryFn: () => fetchRepositories(timeRange as TimeRange),
   });
 
   const [searchTerm, setSearchTerm] = useState("");

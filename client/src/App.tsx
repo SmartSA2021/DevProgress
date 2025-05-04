@@ -27,7 +27,7 @@ function Router() {
             <Route path="/" component={() => <Dashboard timeRange={timeRange} />} />
             <Route path="/developers" component={Developers} />
             <Route path="/developers/:id" component={() => <DeveloperDetail timeRange={timeRange} />} />
-            <Route path="/repositories" component={Repositories} />
+            <Route path="/repositories" component={() => <Repositories timeRange={timeRange} />} />
             <Route path="/settings" component={Settings} />
             <Route component={NotFound} />
           </Switch>

@@ -38,8 +38,8 @@ export async function fetchDeveloperActivities(id: number) {
 }
 
 // API functions for repositories
-export async function fetchRepositories() {
-  const response = await apiRequest('GET', '/api/repositories', undefined);
+export async function fetchRepositories(timeRange: TimeRange = '30days') {
+  const response = await apiRequest('GET', `/api/repositories?timeRange=${timeRange}`, undefined);
   return response.json();
 }
 
