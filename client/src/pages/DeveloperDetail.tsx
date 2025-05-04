@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDeveloper, fetchDeveloperSummary, fetchDeveloperActivities } from "@/lib/githubAPI";
 import { TimeRange } from "@shared/schema";
 import DateRangeSelector from "@/components/common/DateRangeSelector";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   GitCommit, 
   GitPullRequest, 
@@ -416,10 +416,10 @@ export default function DeveloperDetail() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Avg. Activity</p>
-                  <p className="text-xl font-semibold">3.5 hrs</p>
+                  <p className="text-xl font-semibold">{calculateAverageActivity(activities || [])}</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">Most active during weekdays (afternoon, peak: 2 PM)</p>
+              <p className="text-xs text-gray-500 mt-2">{determineActivityPattern(activities || [])}</p>
             </CardContent>
           </Card>
         </div>
@@ -623,15 +623,25 @@ export default function DeveloperDetail() {
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={[
-                          { name: "Mon", commits: 12 },
-                          { name: "Tue", commits: 15 },
-                          { name: "Wed", commits: 18 },
-                          { name: "Thu", commits: 22 },
-                          { name: "Fri", commits: 17 },
-                          { name: "Sat", commits: 5 },
-                          { name: "Sun", commits: 3 },
-                        ]}
+                        data={(() => {
+                          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                          const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+                          
+                          if (activities && activities.length > 0) {
+                            activities.forEach(activity => {
+                              if (activity.type === 'commit') {
+                                const date = new Date(activity.createdAt);
+                                const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+                                dayCounts[dayIndex]++;
+                              }
+                            });
+                          }
+                          
+                          return dayNames.map((name, index) => ({
+                            name,
+                            commits: dayCounts[index]
+                          }));
+                        })()}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" />
