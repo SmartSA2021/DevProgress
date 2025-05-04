@@ -38,10 +38,17 @@ import {
 } from "recharts";
 import { format, formatDistanceToNow, parseISO, differenceInDays, getHours, getDay } from "date-fns";
 
-export default function DeveloperDetail() {
+interface DeveloperDetailProps {
+  timeRange?: string;
+}
+
+export default function DeveloperDetail({ timeRange: propTimeRange }: DeveloperDetailProps) {
   const [, params] = useRoute("/developers/:id");
   const developerId = params?.id ? parseInt(params.id) : 0;
-  const [timeRange, setTimeRange] = useState<TimeRange>("30days");
+  const [internalTimeRange, setInternalTimeRange] = useState<TimeRange>("30days");
+  
+  // Use either the prop timeRange or the internal state
+  const timeRange = propTimeRange as TimeRange || internalTimeRange;
 
   const { data: developer, isLoading: isLoadingDeveloper } = useQuery({
     queryKey: [`/api/developers/${developerId}`],

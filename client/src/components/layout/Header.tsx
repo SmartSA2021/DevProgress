@@ -45,7 +45,7 @@ export default function Header({ timeRange, onTimeRangeChange }: HeaderProps) {
           <h2 className="text-lg font-medium text-white">{getPageTitle()}</h2>
         </div>
         <div className="flex items-center space-x-4">
-          {location === "/" && (
+          {(location === "/" || location.startsWith("/developers/")) && (
             <div className="relative">
               <div className="flex items-center">
                 <Select
