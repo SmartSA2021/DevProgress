@@ -134,7 +134,7 @@ export default function Developers() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredDevelopers?.map(developer => (
             <Link href={`/developers/${developer.id}`} key={developer.id}>
-              <a className="block">
+              <div className="block cursor-pointer">
                 <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
                   <CardContent className="p-6">
                     <div className="flex items-start mb-4">
@@ -205,7 +205,7 @@ export default function Developers() {
                     </div>
                   </CardContent>
                 </Card>
-              </a>
+              </div>
             </Link>
           ))}
         </div>

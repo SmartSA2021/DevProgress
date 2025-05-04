@@ -16,10 +16,10 @@ export default function DevelopersTable({ developers, className }: DevelopersTab
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-medium">Top Performing Developers</CardTitle>
           <Link href="/developers">
-            <a className="flex items-center text-sm text-gray-400 hover:text-white">
+            <div className="flex items-center text-sm text-gray-400 hover:text-white cursor-pointer">
               <span>View All</span>
               <ArrowRight className="ml-1 h-4 w-4" />
-            </a>
+            </div>
           </Link>
         </div>
       </CardHeader>
@@ -100,9 +100,9 @@ export default function DevelopersTable({ developers, className }: DevelopersTab
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Link href={`/developers/${developer.id}`}>
-                      <a className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700">
+                      <div className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 cursor-pointer inline-block">
                         Details
-                      </a>
+                      </div>
                     </Link>
                   </td>
                 </tr>
