@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { TimeRange } from "@shared/schema";
+import { TimeRange, DeveloperSummary, Activity } from "@shared/schema";
 import axios from "axios";
 
 // GitHub API helper functions
