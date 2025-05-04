@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { checkGitHubStatus, connectToGitHub } from "@/lib/githubAPI";
+import { checkGitHubStatus, connectToGitHub, connectToGitHubMutation, disconnectFromGitHub } from "@/lib/githubAPI";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Bell, Mail, Shield, MoonStar, Sun, AlertOctagon, RotateCcw, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -19,26 +19,36 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 const githubTokenSchema = z.object({
-  token: z.string().min(1, "GitHub token is required")
+  token: z.string().min(1, "GitHub token is required"),
+  organization: z.string().optional()
 });
 
 export default function Settings() {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const { data: githubStatus, isLoading: isLoadingStatus } = useQuery({
+  interface GitHubStatus {
+    connected: boolean;
+    username?: string;
+    avatarUrl?: string;
+    name?: string;
+  }
+
+  const { data: githubStatus, isLoading: isLoadingStatus } = useQuery<GitHubStatus>({
     queryKey: ['/api/github/status'],
+    initialData: { connected: false }
   });
 
   const form = useForm<z.infer<typeof githubTokenSchema>>({
     resolver: zodResolver(githubTokenSchema),
     defaultValues: {
       token: "",
+      organization: "",
     },
   });
 
   const connectMutation = useMutation({
-    mutationFn: connectToGitHub,
+    mutationFn: connectToGitHubMutation,
     onSuccess: () => {
       toast({
         title: "Connected to GitHub",
@@ -60,17 +70,29 @@ export default function Settings() {
 
   const onSubmit = (data: z.infer<typeof githubTokenSchema>) => {
     setIsConnecting(true);
-    connectMutation.mutate(data.token);
+    connectMutation.mutate({ token: data.token, organization: data.organization });
   };
 
+  const disconnectMutation = useMutation({
+    mutationFn: disconnectFromGitHub,
+    onSuccess: () => {
+      toast({
+        title: "GitHub disconnected",
+        description: "Your GitHub account has been disconnected.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/github/status'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Disconnection failed",
+        description: "Failed to disconnect from GitHub.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const disconnectGitHub = () => {
-    toast({
-      title: "GitHub disconnected",
-      description: "Your GitHub account has been disconnected.",
-    });
-    // In a real app, we would call an API to revoke the token
-    // For now, just invalidate the query to refresh the UI
-    queryClient.invalidateQueries({ queryKey: ['/api/github/status'] });
+    disconnectMutation.mutate();
   };
 
   return (
@@ -157,6 +179,26 @@ export default function Settings() {
                                 </FormControl>
                                 <FormDescription className="text-gray-400">
                                   Your token is stored securely and used only for accessing GitHub data.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="organization"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>GitHub Organization (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="your-company" 
+                                    className="bg-gray-750 border-gray-600"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription className="text-gray-400">
+                                  If you want to track a specific organization's repositories.
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>

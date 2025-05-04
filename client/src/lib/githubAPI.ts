@@ -75,8 +75,23 @@ export async function checkGitHubStatus() {
   return response.json();
 }
 
-export async function connectToGitHub(token: string) {
-  const response = await apiRequest('POST', '/api/github/connect', { token });
+export async function connectToGitHub(token: string, organization?: string) {
+  const response = await apiRequest('POST', '/api/github/connect', { token, organization });
+  return response.json();
+}
+
+// Function signature compatible with useMutation in react-query
+export function connectToGitHubMutation(params: { token: string, organization?: string }) {
+  return connectToGitHub(params.token, params.organization);
+}
+
+export async function disconnectFromGitHub() {
+  const response = await apiRequest('POST', '/api/github/disconnect', undefined);
+  return response.json();
+}
+
+export async function fetchGitHubRepositories() {
+  const response = await apiRequest('GET', '/api/github/repositories', undefined);
   return response.json();
 }
 

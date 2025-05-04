@@ -13,9 +13,17 @@ import { checkGitHubStatus } from "@/lib/githubAPI";
 export default function Sidebar() {
   const [location] = useLocation();
   
-  const { data: githubStatus } = useQuery({
+  interface GitHubStatus {
+    connected: boolean;
+    username?: string;
+    avatarUrl?: string;
+    name?: string;
+  }
+
+  const { data: githubStatus } = useQuery<GitHubStatus>({
     queryKey: ['/api/github/status'],
     staleTime: 5 * 60 * 1000, // 5 minutes
+    initialData: { connected: false }
   });
 
   const navItems = [

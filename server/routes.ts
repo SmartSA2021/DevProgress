@@ -4,17 +4,61 @@ import { storage } from "./storage";
 import { TimeRange } from "@shared/schema";
 import axios from "axios";
 
-// Validate GitHub token
-const validateToken = async (token: string): Promise<boolean> => {
-  try {
-    const response = await axios.get('https://api.github.com/user', {
-      headers: {
-        Authorization: `token ${token}`,
-      },
-    });
-    return response.status === 200;
-  } catch (error) {
-    return false;
+// GitHub API helper functions
+const githubApi = {
+  async getUser(token: string) {
+    try {
+      const response = await axios.get('https://api.github.com/user', {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json'
+        },
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+  
+  async getRepositories(token: string, organization?: string) {
+    try {
+      let url = 'https://api.github.com/user/repos';
+      if (organization) {
+        url = `https://api.github.com/orgs/${organization}/repos`;
+      }
+      
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json'
+        },
+        params: {
+          sort: 'updated',
+          per_page: 100
+        }
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error };
+    }
+  },
+  
+  async getCommits(token: string, owner: string, repo: string) {
+    try {
+      const url = `https://api.github.com/repos/${owner}/${repo}/commits`;
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json'
+        },
+        params: {
+          per_page: 100
+        }
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error };
+    }
   }
 };
 
@@ -163,9 +207,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GitHub auth status check
   app.get('/api/github/status', async (req: Request, res: Response) => {
     try {
-      // In a real app, you would check the user's session for a GitHub token
-      // For now, we'll just return a mock status
-      res.json({ connected: true, username: 'github_user' });
+      // Check if we have a GitHub token stored
+      const githubToken = process.env.GITHUB_TOKEN;
+      
+      if (!githubToken) {
+        return res.json({ connected: false });
+      }
+      
+      // Validate the token and get user info
+      try {
+        const response = await axios.get('https://api.github.com/user', {
+          headers: {
+            Authorization: `token ${githubToken}`,
+          },
+        });
+        
+        if (response.status === 200 && response.data) {
+          return res.json({ 
+            connected: true, 
+            username: response.data.login,
+            avatarUrl: response.data.avatar_url,
+            name: response.data.name || response.data.login
+          });
+        } else {
+          return res.json({ connected: false });
+        }
+      } catch (err) {
+        // Token is invalid
+        return res.json({ connected: false });
+      }
     } catch (error) {
       console.error('Error checking GitHub status:', error);
       res.status(500).json({ message: 'Failed to check GitHub status' });
@@ -175,25 +245,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Connect to GitHub (would typically use OAuth, but we'll use a simple token for demo)
   app.post('/api/github/connect', async (req: Request, res: Response) => {
     try {
-      const { token } = req.body;
+      const { token, organization } = req.body;
       
       if (!token) {
         return res.status(400).json({ message: 'GitHub token is required' });
       }
       
-      const isValid = await validateToken(token);
-      
-      if (!isValid) {
+      // Validate token by trying to get user info
+      try {
+        const userResponse = await axios.get('https://api.github.com/user', {
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json'
+          },
+        });
+        
+        // If we have an organization, verify access
+        if (organization) {
+          try {
+            await axios.get(`https://api.github.com/orgs/${organization}`, {
+              headers: {
+                Authorization: `token ${token}`,
+                Accept: 'application/vnd.github.v3+json'
+              },
+            });
+          } catch (orgError) {
+            return res.status(403).json({ 
+              message: `Unable to access organization: ${organization}. Please check your token has appropriate permissions.` 
+            });
+          }
+        }
+        
+        // Store the token (in a real app, this would go in a database or secure storage)
+        process.env.GITHUB_TOKEN = token;
+        if (organization) {
+          process.env.GITHUB_ORGANIZATION = organization;
+        }
+        
+        res.json({ 
+          success: true, 
+          message: 'Connected to GitHub successfully',
+          username: userResponse.data.login,
+          avatarUrl: userResponse.data.avatar_url
+        });
+      } catch (error) {
         return res.status(401).json({ message: 'Invalid GitHub token' });
       }
-      
-      // In a real app, you would store this token in the user's session
-      // and use it to make authenticated requests to the GitHub API
-      
-      res.json({ success: true, message: 'Connected to GitHub successfully' });
     } catch (error) {
       console.error('Error connecting to GitHub:', error);
       res.status(500).json({ message: 'Failed to connect to GitHub' });
+    }
+  });
+
+  // Disconnect from GitHub
+  app.post('/api/github/disconnect', async (req: Request, res: Response) => {
+    try {
+      // Clear the stored token
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.GITHUB_ORGANIZATION;
+      
+      res.json({ success: true, message: 'Disconnected from GitHub successfully' });
+    } catch (error) {
+      console.error('Error disconnecting from GitHub:', error);
+      res.status(500).json({ message: 'Failed to disconnect from GitHub' });
+    }
+  });
+  
+  // List organization repositories
+  app.get('/api/github/repositories', async (req: Request, res: Response) => {
+    try {
+      const githubToken = process.env.GITHUB_TOKEN;
+      const organization = process.env.GITHUB_ORGANIZATION;
+      
+      if (!githubToken) {
+        return res.status(401).json({ message: 'Not connected to GitHub' });
+      }
+      
+      let url = 'https://api.github.com/user/repos';
+      if (organization) {
+        url = `https://api.github.com/orgs/${organization}/repos`;
+      }
+      
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          Accept: 'application/vnd.github.v3+json'
+        },
+        params: {
+          sort: 'updated',
+          per_page: 100
+        }
+      });
+      
+      res.json(response.data);
+    } catch (error) {
+      console.error('Error fetching GitHub repositories:', error);
+      res.status(500).json({ message: 'Failed to fetch GitHub repositories' });
     }
   });
 
