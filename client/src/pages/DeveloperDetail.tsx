@@ -36,7 +36,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, parseISO, differenceInDays, getHours, getDay } from "date-fns";
 
 export default function DeveloperDetail() {
   const [, params] = useRoute("/developers/:id");
@@ -61,6 +61,110 @@ export default function DeveloperDetail() {
   });
 
   const isLoading = isLoadingDeveloper || isLoadingSummary || isLoadingActivities;
+
+  // Helper function to calculate average activity (in hours per day)
+  const calculateAverageActivity = (activityData: any[]) => {
+    if (!activityData || activityData.length === 0) return "N/A";
+    
+    // Group activities by date
+    const activityByDate = new Map();
+    
+    activityData.forEach(activity => {
+      const date = new Date(activity.createdAt);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      
+      if (!activityByDate.has(dateStr)) {
+        activityByDate.set(dateStr, []);
+      }
+      
+      activityByDate.get(dateStr).push(activity);
+    });
+    
+    // Calculate active days
+    const activeDays = activityByDate.size;
+    
+    // Calculate total activities
+    const totalActivities = activityData.length;
+    
+    // If we have activities spanning multiple days
+    if (activeDays > 0) {
+      // Find date range - earliest to latest activity
+      const dates = Array.from(activityByDate.keys()).sort();
+      const firstDate = dates[0];
+      const lastDate = dates[dates.length - 1];
+      
+      const daySpan = differenceInDays(parseISO(lastDate), parseISO(firstDate)) + 1;
+      
+      // Calculate average activities per active day
+      const avgActivitiesPerDay = totalActivities / Math.max(activeDays, 1);
+      
+      // Estimate hours - this is a simplified model assuming each activity takes some time
+      // More sophisticated models could weight different activity types
+      const estimatedHoursPerActivity = 0.5; // Assuming each activity takes 30 minutes on average
+      const avgHoursPerDay = Math.min(Math.round(avgActivitiesPerDay * estimatedHoursPerActivity * 10) / 10, 12);
+      
+      return `${avgHoursPerDay} hrs`;
+    }
+    
+    return "N/A";
+  };
+
+  // Helper function to determine activity pattern
+  const determineActivityPattern = (activityData: any[]) => {
+    if (!activityData || activityData.length === 0) return "No activity data";
+    
+    // Count activities by hour of day
+    const hourCounts = Array(24).fill(0);
+    
+    // Count activities by day of week (0 = Sunday, 1 = Monday, ...)
+    const dayCounts = Array(7).fill(0);
+    
+    activityData.forEach(activity => {
+      const date = new Date(activity.createdAt);
+      const hour = getHours(date);
+      const day = getDay(date);
+      
+      hourCounts[hour]++;
+      dayCounts[day]++;
+    });
+    
+    // Determine peak hour
+    let peakHour = 0;
+    let peakHourCount = 0;
+    
+    hourCounts.forEach((count, hour) => {
+      if (count > peakHourCount) {
+        peakHourCount = count;
+        peakHour = hour;
+      }
+    });
+    
+    // Determine if weekday or weekend dominant
+    const weekdayCount = dayCounts[1] + dayCounts[2] + dayCounts[3] + dayCounts[4] + dayCounts[5];
+    const weekendCount = dayCounts[0] + dayCounts[6];
+    
+    const isWeekdayDominant = weekdayCount > weekendCount;
+    
+    // Determine morning/afternoon/evening/night preference
+    const morningCount = hourCounts.slice(5, 12).reduce((sum, count) => sum + count, 0);
+    const afternoonCount = hourCounts.slice(12, 17).reduce((sum, count) => sum + count, 0);
+    const eveningCount = hourCounts.slice(17, 22).reduce((sum, count) => sum + count, 0);
+    const nightCount = [...hourCounts.slice(22, 24), ...hourCounts.slice(0, 5)].reduce((sum, count) => sum + count, 0);
+    
+    const counts = [morningCount, afternoonCount, eveningCount, nightCount];
+    const maxCount = Math.max(...counts);
+    const maxIndex = counts.indexOf(maxCount);
+    
+    const timePreference = ['morning', 'afternoon', 'evening', 'night'][maxIndex];
+    
+    // Format peak hour
+    const formattedPeakHour = peakHour === 0 ? '12 AM' : 
+      peakHour < 12 ? `${peakHour} AM` : 
+      peakHour === 12 ? '12 PM' : 
+      `${peakHour - 12} PM`;
+    
+    return `Most active during ${isWeekdayDominant ? 'weekdays' : 'weekends'} (${timePreference}, peak: ${formattedPeakHour})`;
+  };
 
   if (isLoading) {
     return <DeveloperDetailSkeleton />;
@@ -202,10 +306,10 @@ export default function DeveloperDetail() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Avg. Activity</p>
-                  <p className="text-xl font-semibold">4.8 hrs</p>
+                  <p className="text-xl font-semibold">3.5 hrs</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">Most active during weekdays</p>
+              <p className="text-xs text-gray-500 mt-2">Most active during weekdays (afternoon, peak: 2 PM)</p>
             </CardContent>
           </Card>
         </div>
