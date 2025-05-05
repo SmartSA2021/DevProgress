@@ -71,12 +71,12 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
           : b.name.localeCompare(a.name);
       } else if (sortBy === "commits") {
         return sortDirection === "asc" 
-          ? (a.stats?.commits || 0) - (b.stats?.commits || 0)
-          : (b.stats?.commits || 0) - (a.stats?.commits || 0);
+          ? (a.commits || 0) - (b.commits || 0)
+          : (b.commits || 0) - (a.commits || 0);
       } else if (sortBy === "issues") {
         return sortDirection === "asc" 
-          ? (a.stats?.openIssues || 0) - (b.stats?.openIssues || 0)
-          : (b.stats?.openIssues || 0) - (a.stats?.openIssues || 0);
+          ? (a.openIssuesCount || 0) - (b.openIssuesCount || 0)
+          : (b.openIssuesCount || 0) - (a.openIssuesCount || 0);
       }
       return 0;
     });
@@ -106,8 +106,8 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
   // Repo contribution data for the bar chart
   const repoContributionData = topRepos.map(repo => ({
     name: repo.name,
-    commits: repo.stats?.commits || 0,
-    contributors: repo.stats?.contributors || 0,
+    commits: repo.commits || 0,
+    contributors: repo.contributors || 0,
   }));
 
   return (
@@ -287,15 +287,15 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
                   <div className="flex items-center gap-4">
                     <div className="flex items-center text-sm text-gray-400">
                       <GitFork className="h-4 w-4 mr-1" />
-                      <span>{repo.stats?.forks || 0}</span>
+                      <span>{repo.forksCount || 0}</span>
                     </div>
                     <div className="flex items-center text-sm text-gray-400">
                       <Star className="h-4 w-4 mr-1" />
-                      <span>{repo.stats?.stars || 0}</span>
+                      <span>{repo.stargazersCount || 0}</span>
                     </div>
                     <div className="flex items-center text-sm text-gray-400">
                       <Eye className="h-4 w-4 mr-1" />
-                      <span>{repo.stats?.watchers || 0}</span>
+                      <span>{repo.watchersCount || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -304,19 +304,19 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-400">Commits</span>
-                      <span>{repo.stats?.commits || 0}</span>
+                      <span>{repo.commits || 0}</span>
                     </div>
                     <Progress 
-                      value={Math.min((repo.stats?.commits || 0) / 1.5, 100)} 
+                      value={Math.min((repo.commits || 0) / 100, 100)} 
                       className="h-2 bg-gray-700" 
                     />
                     <div className="mt-4">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-400">Contributors</span>
-                        <span>{repo.stats?.contributors || 0}</span>
+                        <span>{repo.contributors || 0}</span>
                       </div>
                       <div className="flex -space-x-2">
-                        {Array.from({ length: Math.min(repo.stats?.contributors || 0, 5) }).map((_, i) => (
+                        {Array.from({ length: Math.min(repo.contributors || 0, 5) }).map((_, i) => (
                           <div 
                             key={i} 
                             className="h-8 w-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs"
@@ -324,9 +324,9 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
                             {i + 1}
                           </div>
                         ))}
-                        {(repo.stats?.contributors || 0) > 5 && (
+                        {(repo.contributors || 0) > 5 && (
                           <div className="h-8 w-8 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-xs">
-                            +{(repo.stats?.contributors || 0) - 5}
+                            +{(repo.contributors || 0) - 5}
                           </div>
                         )}
                       </div>
@@ -335,21 +335,21 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
 
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-400">Pull Requests</span>
-                      <span>{repo.stats?.pullRequests || 0}</span>
+                      <span className="text-gray-400">Activity</span>
+                      <span>{repo.commits || 0}</span>
                     </div>
                     <Progress 
-                      value={Math.min((repo.stats?.pullRequests || 0) * 2, 100)} 
+                      value={Math.min((repo.commits || 0) / 100, 100)} 
                       className="h-2 bg-gray-700" 
                     />
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       <div>
-                        <div className="text-xs text-gray-400">Open</div>
-                        <div className="text-sm">{repo.stats?.openPRs || 0}</div>
+                        <div className="text-xs text-gray-400">Created</div>
+                        <div className="text-sm">{new Date(repo.createdAt).toLocaleDateString()}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Merged</div>
-                        <div className="text-sm">{repo.stats?.mergedPRs || 0}</div>
+                        <div className="text-xs text-gray-400">Last Push</div>
+                        <div className="text-sm">{new Date(repo.pushedAt).toLocaleDateString()}</div>
                       </div>
                     </div>
                   </div>
@@ -357,24 +357,24 @@ export default function Repositories({ timeRange = "30days" }: RepositoriesProps
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-gray-400">Issues</span>
-                      <span>{repo.stats?.openIssues || 0}</span>
+                      <span>{repo.openIssuesCount || 0}</span>
                     </div>
                     <Progress 
-                      value={Math.min((repo.stats?.openIssues || 0) * 3, 100)} 
+                      value={Math.min((repo.openIssuesCount || 0) * 3, 100)} 
                       className="h-2 bg-gray-700" 
                     />
                     <div className="grid grid-cols-3 gap-2 mt-4">
                       <div>
                         <div className="text-xs text-gray-400">Open</div>
-                        <div className="text-sm">{repo.stats?.openIssues || 0}</div>
+                        <div className="text-sm">{repo.openIssuesCount || 0}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">In Progress</div>
-                        <div className="text-sm">{repo.stats?.inProgressIssues || 0}</div>
+                        <div className="text-xs text-gray-400">Language</div>
+                        <div className="text-sm">{repo.language || 'N/A'}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-gray-400">Closed</div>
-                        <div className="text-sm">{repo.stats?.closedIssues || 0}</div>
+                        <div className="text-xs text-gray-400">Updated</div>
+                        <div className="text-sm">{new Date(repo.updatedAt).toLocaleDateString()}</div>
                       </div>
                     </div>
                   </div>
