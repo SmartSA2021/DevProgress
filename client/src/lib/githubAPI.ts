@@ -48,18 +48,18 @@ export async function fetchRepository(id: number) {
   return response.json();
 }
 
-export async function fetchRepositoryCommits(id: number) {
-  const response = await apiRequest('GET', `/api/repositories/${id}/commits`, undefined);
+export async function fetchRepositoryCommits(id: number, timeRange: TimeRange = '30days') {
+  const response = await apiRequest('GET', `/api/repositories/${id}/commits?timeRange=${timeRange}`, undefined);
   return response.json();
 }
 
-export async function fetchRepositoryPullRequests(id: number) {
-  const response = await apiRequest('GET', `/api/repositories/${id}/pull-requests`, undefined);
+export async function fetchRepositoryPullRequests(id: number, timeRange: TimeRange = '30days') {
+  const response = await apiRequest('GET', `/api/repositories/${id}/pull-requests?timeRange=${timeRange}`, undefined);
   return response.json();
 }
 
-export async function fetchRepositoryIssues(id: number) {
-  const response = await apiRequest('GET', `/api/repositories/${id}/issues`, undefined);
+export async function fetchRepositoryIssues(id: number, timeRange: TimeRange = '30days') {
+  const response = await apiRequest('GET', `/api/repositories/${id}/issues?timeRange=${timeRange}`, undefined);
   return response.json();
 }
 

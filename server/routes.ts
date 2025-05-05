@@ -1030,8 +1030,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/repositories/:id/commits', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const commits = await storage.getCommitsByRepository(id);
-      res.json(commits);
+      const timeRange = (req.query.timeRange as TimeRange) || '30days';
+      const githubToken = process.env.GITHUB_TOKEN;
+      
+      if (!githubToken) {
+        return res.json(await storage.getCommitsByRepository(id));
+      }
+      
+      try {
+        const repository = await storage.getRepository(id);
+        if (!repository) {
+          return res.status(404).json({ message: 'Repository not found' });
+        }
+        
+        const commitsUrl = `https://api.github.com/repos/${repository.fullName}/commits`;
+        const commitsResponse = await axios.get(commitsUrl, {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: 'application/vnd.github.v3+json'
+          },
+          params: {
+            since: getTimeRangeDate(timeRange),
+            per_page: 100
+          }
+        });
+        
+        const commits = commitsResponse.data.map((commit: any) => ({
+          id: parseInt(commit.sha.substring(0, 8), 16),
+          sha: commit.sha,
+          message: commit.commit.message,
+          authorName: commit.commit.author.name,
+          authorEmail: commit.commit.author.email,
+          authorUsername: commit.author?.login || commit.commit.author.name,
+          authorAvatarUrl: commit.author?.avatar_url || '',
+          date: new Date(commit.commit.author.date),
+          repositoryId: id,
+          url: commit.html_url
+        }));
+        
+        return res.json(commits);
+      } catch (githubError) {
+        console.error('Error fetching GitHub repository commits:', githubError);
+        return res.json(await storage.getCommitsByRepository(id));
+      }
     } catch (error) {
       console.error('Error fetching repository commits:', error);
       res.status(500).json({ message: 'Failed to fetch repository commits' });
@@ -1042,8 +1083,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/repositories/:id/pull-requests', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const pullRequests = await storage.getPullRequestsByRepository(id);
-      res.json(pullRequests);
+      const timeRange = (req.query.timeRange as TimeRange) || '30days';
+      const githubToken = process.env.GITHUB_TOKEN;
+      
+      if (!githubToken) {
+        return res.json(await storage.getPullRequestsByRepository(id));
+      }
+      
+      try {
+        const repository = await storage.getRepository(id);
+        if (!repository) {
+          return res.status(404).json({ message: 'Repository not found' });
+        }
+        
+        const pullsUrl = `https://api.github.com/repos/${repository.fullName}/pulls`;
+        const pullsResponse = await axios.get(pullsUrl, {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: 'application/vnd.github.v3+json'
+          },
+          params: {
+            state: 'all',
+            sort: 'updated',
+            direction: 'desc',
+            per_page: 100
+          }
+        });
+        
+        // Filter by date client-side since GitHub API doesn't have a since parameter for PRs
+        const sinceDate = new Date(getTimeRangeDate(timeRange));
+        
+        const pullRequests = pullsResponse.data
+          .filter((pr: any) => new Date(pr.updated_at) >= sinceDate)
+          .map((pr: any) => ({
+            id: pr.id,
+            number: pr.number,
+            title: pr.title,
+            state: pr.state,
+            createdAt: new Date(pr.created_at),
+            updatedAt: new Date(pr.updated_at),
+            closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
+            mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
+            authorUsername: pr.user.login,
+            authorAvatarUrl: pr.user.avatar_url,
+            repositoryId: id,
+            url: pr.html_url
+          }));
+        
+        return res.json(pullRequests);
+      } catch (githubError) {
+        console.error('Error fetching GitHub repository pull requests:', githubError);
+        return res.json(await storage.getPullRequestsByRepository(id));
+      }
     } catch (error) {
       console.error('Error fetching repository pull requests:', error);
       res.status(500).json({ message: 'Failed to fetch repository pull requests' });
@@ -1054,13 +1145,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/repositories/:id/issues', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const issues = await storage.getIssuesByRepository(id);
-      res.json(issues);
+      const timeRange = (req.query.timeRange as TimeRange) || '30days';
+      const githubToken = process.env.GITHUB_TOKEN;
+      
+      if (!githubToken) {
+        return res.json(await storage.getIssuesByRepository(id));
+      }
+      
+      try {
+        const repository = await storage.getRepository(id);
+        if (!repository) {
+          return res.status(404).json({ message: 'Repository not found' });
+        }
+        
+        const issuesUrl = `https://api.github.com/repos/${repository.fullName}/issues`;
+        const issuesResponse = await axios.get(issuesUrl, {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: 'application/vnd.github.v3+json'
+          },
+          params: {
+            state: 'all',
+            sort: 'updated',
+            direction: 'desc',
+            per_page: 100
+          }
+        });
+        
+        // Filter by date client-side since GitHub API doesn't have a since parameter for issues
+        const sinceDate = new Date(getTimeRangeDate(timeRange));
+        
+        const issues = issuesResponse.data
+          .filter((issue: any) => new Date(issue.updated_at) >= sinceDate && !issue.pull_request) // Exclude PRs
+          .map((issue: any) => ({
+            id: issue.id,
+            number: issue.number,
+            title: issue.title,
+            state: issue.state,
+            createdAt: new Date(issue.created_at),
+            updatedAt: new Date(issue.updated_at),
+            closedAt: issue.closed_at ? new Date(issue.closed_at) : null,
+            authorUsername: issue.user.login,
+            authorAvatarUrl: issue.user.avatar_url,
+            repositoryId: id,
+            url: issue.html_url,
+            priority: getPriority(issue),
+            labels: issue.labels?.map((label: any) => label.name) || []
+          }));
+        
+        return res.json(issues);
+      } catch (githubError) {
+        console.error('Error fetching GitHub repository issues:', githubError);
+        return res.json(await storage.getIssuesByRepository(id));
+      }
     } catch (error) {
       console.error('Error fetching repository issues:', error);
       res.status(500).json({ message: 'Failed to fetch repository issues' });
     }
   });
+  
+  // Helper function to determine issue priority based on labels
+  function getPriority(issue: any): 'low' | 'medium' | 'high' {
+    const labels = issue.labels?.map((l: any) => l.name.toLowerCase()) || [];
+    if (labels.some(l => l.includes('high') || l.includes('critical') || l.includes('urgent'))) {
+      return 'high';
+    } else if (labels.some(l => l.includes('medium') || l.includes('moderate'))) {
+      return 'medium';
+    }
+    return 'low';
+  }
 
   // Get recent activities
   app.get('/api/activities/recent', async (req: Request, res: Response) => {
